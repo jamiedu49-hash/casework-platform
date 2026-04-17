@@ -14,8 +14,10 @@ import {
   Star,
   TrendingUp,
   AlertTriangle,
+  Clock,
 } from "lucide-react";
 import { getScenarioById } from "@/data/scenarios";
+import { getPractitioner, saveSession, formatDuration } from "@/lib/storage";
 import { getTechniqueById } from "@/data/techniques";
 import { calculateAssessment, getGrade, getGradeColor, getGradeBgColor } from "@/lib/assessment";
 import ChatMessage from "@/components/ChatMessage";
@@ -105,8 +107,14 @@ export default function PracticePage({
   const [showAssessment, setShowAssessment] = useState(false);
   const [showClientPanel, setShowClientPanel] = useState(false);
   const [showHintPanel, setShowHintPanel] = useState(false);
+  const [practitioner, setPractitionerState] = useState<{ id: string; name: string } | null>(null);
+  const [practitionerLoaded, setPractitionerLoaded] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const sessionStartRef = useRef<string>(new Date().toISOString());
+  const sessionEndTimeRef = useRef<string>("");
+  const sessionResponsesRef = useRef<{ nodeId: string; selectedOptionId: string; timestamp: string }[]>([]);
+  const sessionSavedRef = useRef(false);
 
   // Scroll chat to bottom
   const scrollToBottom = useCallback(() => {
@@ -116,6 +124,12 @@ export default function PracticePage({
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping, showFeedback, scrollToBottom]);
+
+  // Load practitioner info
+  useEffect(() => {
+    setPractitionerState(getPractitioner());
+    setPractitionerLoaded(true);
+  }, []);
 
   // Load first node on mount (strict-mode safe)
   useEffect(() => {
@@ -184,6 +198,28 @@ export default function PracticePage({
     ...new Set(scenario.dialogueNodes.map((n) => n.stage)),
   ];
 
+  if (!practitionerLoaded) return null;
+
+  if (!practitioner) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-sm">
+          <AlertTriangle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+          <h2 className="text-lg font-bold text-slate-700 mb-2">请先登录</h2>
+          <p className="text-sm text-slate-500 mb-4">
+            请点击右上角的登录按钮，输入学号和姓名后即可开始练习
+          </p>
+          <Link
+            href="/scenarios"
+            className="text-blue-600 hover:text-blue-700 font-medium"
+          >
+            返回场景列表
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // Handle selecting a response option
   function handleSelectOption(option: ResponseOption) {
     if (showFeedback || isComplete) return;
@@ -201,6 +237,13 @@ export default function PracticePage({
         stage: currentNode.stage,
       },
     ]);
+
+    // Track for session record
+    sessionResponsesRef.current.push({
+      nodeId: currentNode.id,
+      selectedOptionId: option.id,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   // Handle continuing after feedback
@@ -225,6 +268,7 @@ export default function PracticePage({
 
     // Check if this is the last node (end IDs follow pattern: "xx-end" or "node_end")
     if (selectedOption.nextNodeId.endsWith('-end') || selectedOption.nextNodeId === 'node_end') {
+      sessionEndTimeRef.current = new Date().toISOString();
       setIsComplete(true);
       setSelectedOption(null);
       return;
@@ -240,6 +284,7 @@ export default function PracticePage({
       // Fallback: advance to the next sequential node
       const nextIdx = currentNodeIndex + 1;
       if (nextIdx >= scenario.dialogueNodes.length) {
+        sessionEndTimeRef.current = new Date().toISOString();
         setIsComplete(true);
         setSelectedOption(null);
         return;
@@ -277,6 +322,28 @@ export default function PracticePage({
   // Show assessment report
   function handleShowAssessment() {
     setShowAssessment(true);
+
+    // Save session to localStorage
+    if (practitioner && assessmentScore && scenario && !sessionSavedRef.current) {
+      sessionSavedRef.current = true;
+      const endTime = sessionEndTimeRef.current || new Date().toISOString();
+      const durationSeconds = Math.round(
+        (new Date(endTime).getTime() - new Date(sessionStartRef.current).getTime()) / 1000
+      );
+
+      saveSession({
+        id: `session_${Date.now()}`,
+        practitionerId: practitioner.id,
+        scenarioId: scenario.id,
+        scenarioTitle: scenario.title,
+        startTime: sessionStartRef.current,
+        endTime,
+        durationSeconds,
+        responses: sessionResponsesRef.current,
+        score: assessmentScore,
+        completed: true,
+      });
+    }
   }
 
   // Reset and restart
@@ -292,6 +359,10 @@ export default function PracticePage({
     setIsTyping(false);
     setIsComplete(false);
     setShowAssessment(false);
+    sessionStartRef.current = new Date().toISOString();
+    sessionEndTimeRef.current = "";
+    sessionResponsesRef.current = [];
+    sessionSavedRef.current = false;
   }
 
   const assessmentScore = isComplete ? calculateAssessment(responses) : null;
@@ -342,7 +413,10 @@ export default function PracticePage({
 
   // ---- Assessment Report ----
   if (showAssessment && assessmentScore) {
-    return <AssessmentReport score={assessmentScore} scenario={scenario} onRestart={handleRestart} />;
+    const durationSeconds = sessionEndTimeRef.current
+      ? Math.round((new Date(sessionEndTimeRef.current).getTime() - new Date(sessionStartRef.current).getTime()) / 1000)
+      : 0;
+    return <AssessmentReport score={assessmentScore} scenario={scenario} onRestart={handleRestart} durationSeconds={durationSeconds} />;
   }
 
   return (
@@ -483,13 +557,19 @@ export default function PracticePage({
             {isComplete && !showAssessment ? (
               /* Completion state */
               <div className="text-center py-4">
-                <p className="text-slate-600 mb-4">
+                <p className="text-slate-600 mb-2">
                   对话模拟已完成！你做出了{" "}
                   <span className="font-bold text-blue-600">
                     {responses.length}
                   </span>{" "}
                   个回应选择。
                 </p>
+                {sessionEndTimeRef.current && (
+                  <p className="text-sm text-slate-400 mb-4 flex items-center justify-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    用时：{formatDuration(Math.round((new Date(sessionEndTimeRef.current).getTime() - new Date(sessionStartRef.current).getTime()) / 1000))}
+                  </p>
+                )}
                 <div className="flex justify-center gap-3">
                   <button
                     onClick={handleShowAssessment}
@@ -772,10 +852,12 @@ function AssessmentReport({
   score,
   scenario,
   onRestart,
+  durationSeconds,
 }: {
   score: AssessmentScore;
   scenario: { title: string; id: string };
   onRestart: () => void;
+  durationSeconds: number;
 }) {
   const overallGrade = getGrade(score.overall);
   const gradeColor = getGradeColor(overallGrade);
@@ -798,6 +880,12 @@ function AssessmentReport({
             评估报告
           </h1>
           <p className="text-slate-500">{scenario.title}</p>
+          {durationSeconds > 0 && (
+            <p className="text-sm text-slate-400 mt-1 flex items-center justify-center gap-1">
+              <Clock className="w-3.5 h-3.5" />
+              练习用时：{formatDuration(durationSeconds)}
+            </p>
+          )}
         </div>
 
         {/* Overall score card */}

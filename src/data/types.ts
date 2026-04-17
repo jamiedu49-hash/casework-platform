@@ -77,16 +77,29 @@ export interface Scenario {
   dialogueNodes: DialogueNode[];
 }
 
+// 练习者信息
+export interface PractitionerProfile {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
 // 会话记录
 export interface SessionRecord {
+  id: string;
+  practitionerId: string;
   scenarioId: string;
-  startTime: Date;
+  scenarioTitle: string;
+  startTime: string;
+  endTime: string;
+  durationSeconds: number;
   responses: {
     nodeId: string;
     selectedOptionId: string;
-    timestamp: Date;
+    timestamp: string;
   }[];
   score: AssessmentScore;
+  completed: boolean;
 }
 
 // 评估分数

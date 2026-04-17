@@ -1,6 +1,6 @@
-import { Scenario } from './types';
+import { Scenario } from '../types';
 
-export const scenarios: Scenario[] = [
+export const existingScenarios: Scenario[] = [
   // ============================================================
   // 场景1：焦虑的职场实习生（小林）
   // ============================================================
@@ -3096,17 +3096,3 @@ export const scenarios: Scenario[] = [
   },
 ];
 
-// 通过 ID 获取场景
-export function getScenarioById(id: string): Scenario | undefined {
-  return scenarios.find((s) => s.id === id);
-}
-
-// 通过难度筛选场景
-export function getScenariosByDifficulty(difficulty: Scenario['difficulty']): Scenario[] {
-  return scenarios.filter((s) => s.difficulty === difficulty);
-}
-
-// 获取所有场景分类
-export function getCategories(): string[] {
-  return Array.from(new Set(scenarios.map((s) => s.category)));
-}
