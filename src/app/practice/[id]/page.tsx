@@ -331,7 +331,7 @@ export default function PracticePage({
         (new Date(endTime).getTime() - new Date(sessionStartRef.current).getTime()) / 1000
       );
 
-      saveSession({
+      const sessionData = {
         id: `session_${Date.now()}`,
         practitionerId: practitioner.id,
         scenarioId: scenario.id,
@@ -342,7 +342,19 @@ export default function PracticePage({
         responses: sessionResponsesRef.current,
         score: assessmentScore,
         completed: true,
-      });
+      };
+
+      saveSession(sessionData);
+
+      // 上报到服务器（静默失败，不影响本地功能）
+      fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...sessionData,
+          practitionerName: practitioner.name,
+        }),
+      }).catch(() => {});
     }
   }
 
