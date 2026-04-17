@@ -1,6 +1,10 @@
 import { sql } from '@vercel/postgres';
 import { NextRequest, NextResponse } from 'next/server';
 
+function dbConfigured(): boolean {
+  return !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
+}
+
 async function ensureTable() {
   await sql`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -27,6 +31,10 @@ async function ensureTable() {
 
 // 学生提交练习记录
 export async function POST(request: NextRequest) {
+  if (!dbConfigured()) {
+    return NextResponse.json({ error: '数据库未配置' }, { status: 200 });
+  }
+
   try {
     await ensureTable();
     const body = await request.json();
@@ -60,9 +68,10 @@ export async function POST(request: NextRequest) {
     `;
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Failed to save session:', error);
-    return NextResponse.json({ error: 'Failed to save' }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Failed to save session:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -70,15 +79,23 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const key = request.headers.get('x-teacher-key');
   if (!key || key !== process.env.TEACHER_PASSWORD) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: '密码错误' }, { status: 401 });
+  }
+
+  if (!dbConfigured()) {
+    return NextResponse.json(
+      { error: '数据库未配置。请在 Vercel 项目中创建 Postgres 数据库并关联到项目。' },
+      { status: 500 }
+    );
   }
 
   try {
     await ensureTable();
     const result = await sql`SELECT * FROM sessions ORDER BY start_time DESC`;
     return NextResponse.json(result.rows);
-  } catch (error) {
-    console.error('Failed to fetch sessions:', error);
-    return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Failed to fetch sessions:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

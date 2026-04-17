@@ -76,8 +76,9 @@ export default function DashboardPage() {
       const res = await fetch("/api/sessions", {
         headers: { "x-teacher-key": pw || password },
       });
-      if (!res.ok) throw new Error(res.status === 401 ? "密码错误" : "服务器错误");
-      setSessions(await res.json());
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || (res.status === 401 ? "密码错误" : "服务器错误"));
+      setSessions(data);
       setAuthed(true);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "加载失败");
