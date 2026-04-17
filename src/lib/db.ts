@@ -4,9 +4,15 @@ let pool: Pool | null = null;
 
 export function getPool(): Pool {
   if (!pool) {
+    let url = process.env.POSTGRES_URL || '';
+    // 将 sslmode=require 改为 no-verify，跳过自签名证书验证
+    url = url.replace(/sslmode=require/, 'sslmode=no-verify');
+    if (!url.includes('sslmode=')) {
+      url += (url.includes('?') ? '&' : '?') + 'sslmode=no-verify';
+    }
+
     pool = new Pool({
-      connectionString: process.env.POSTGRES_URL,
-      ssl: { rejectUnauthorized: false },
+      connectionString: url,
       max: 5,
     });
   }
