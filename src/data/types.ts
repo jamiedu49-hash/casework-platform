@@ -11,7 +11,7 @@ export type CaseStage = 'intake' | 'assessment' | 'planning' | 'intervention' | 
 export type ResponseQuality = 'excellent' | 'good' | 'fair' | 'poor';
 
 // 干预技巧分类
-export type TechniqueCategory = 'supportive' | 'exploratory' | 'cognitive' | 'behavioral' | 'structural';
+export type TechniqueCategory = 'supportive' | 'exploratory' | 'cognitive' | 'behavioral' | 'structural' | 'leading' | 'influencing';
 
 // 干预技巧
 export interface Technique {
@@ -67,6 +67,7 @@ export interface Scenario {
   subtitle: string;
   category: string;
   difficulty: DifficultyLevel;
+  primaryStage: CaseStage; // 场景重点训练的个案工作阶段
   estimatedTime: string;
   coverColor: string;
   icon: string;

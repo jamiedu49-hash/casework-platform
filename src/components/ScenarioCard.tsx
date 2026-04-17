@@ -1,7 +1,7 @@
 "use client";
 
 import { Clock, Users } from "lucide-react";
-import type { Scenario, DifficultyLevel } from "@/data/types";
+import type { Scenario, DifficultyLevel, CaseStage } from "@/data/types";
 
 interface ScenarioCardProps {
   scenario: Scenario;
@@ -29,6 +29,15 @@ const difficultyConfig: Record<
   },
 };
 
+const stageLabels: Record<CaseStage, string> = {
+  intake: "接案",
+  assessment: "预估",
+  planning: "计划",
+  intervention: "介入",
+  evaluation: "评估",
+  termination: "结案",
+};
+
 export default function ScenarioCard({ scenario, onClick }: ScenarioCardProps) {
   const difficulty = difficultyConfig[scenario.difficulty];
 
@@ -48,12 +57,17 @@ export default function ScenarioCard({ scenario, onClick }: ScenarioCardProps) {
         <span className="text-5xl drop-shadow-sm transition-transform duration-300 group-hover:scale-110">
           {scenario.icon}
         </span>
-        {/* Difficulty badge */}
-        <span
-          className={`absolute top-3 right-3 px-2.5 py-0.5 rounded-full text-xs font-semibold ${difficulty.bg} ${difficulty.text}`}
-        >
-          {difficulty.label}
-        </span>
+        {/* Badges */}
+        <div className="absolute top-3 right-3 flex gap-1.5">
+          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-white/80 text-slate-700 backdrop-blur-sm">
+            {stageLabels[scenario.primaryStage]}
+          </span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-semibold ${difficulty.bg} ${difficulty.text}`}
+          >
+            {difficulty.label}
+          </span>
+        </div>
       </div>
 
       {/* Card body */}

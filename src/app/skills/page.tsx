@@ -19,6 +19,16 @@ const categoryConfig: Record<
     color: "text-blue-700",
     bg: "bg-blue-50",
   },
+  leading: {
+    label: "引领性技巧",
+    color: "text-teal-700",
+    bg: "bg-teal-50",
+  },
+  influencing: {
+    label: "影响性技巧",
+    color: "text-orange-700",
+    bg: "bg-orange-50",
+  },
   cognitive: {
     label: "认知改变技巧",
     color: "text-violet-700",
@@ -77,6 +87,8 @@ export default function SkillsPage() {
     { key: "all", label: "全部" },
     { key: "supportive", label: "支持性" },
     { key: "exploratory", label: "探索性" },
+    { key: "leading", label: "引领性" },
+    { key: "influencing", label: "影响性" },
     { key: "cognitive", label: "认知改变" },
     { key: "behavioral", label: "行为改变" },
     { key: "structural", label: "结构化" },
