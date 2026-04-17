@@ -1,71 +1,45 @@
-import { sql } from '@vercel/postgres';
 import { NextRequest, NextResponse } from 'next/server';
-
-function dbConfigured(): boolean {
-  return !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
-}
-
-async function ensureTable() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS sessions (
-      id VARCHAR(64) PRIMARY KEY,
-      practitioner_id VARCHAR(64) NOT NULL,
-      practitioner_name VARCHAR(128) NOT NULL,
-      scenario_id VARCHAR(128) NOT NULL,
-      scenario_title VARCHAR(256) NOT NULL,
-      start_time TIMESTAMPTZ NOT NULL,
-      end_time TIMESTAMPTZ NOT NULL,
-      duration_seconds INTEGER NOT NULL,
-      score_overall INTEGER NOT NULL,
-      score_empathy INTEGER DEFAULT 0,
-      score_questioning INTEGER DEFAULT 0,
-      score_intervention INTEGER DEFAULT 0,
-      score_structure INTEGER DEFAULT 0,
-      score_ethics INTEGER DEFAULT 0,
-      techniques_used TEXT DEFAULT '[]',
-      completed BOOLEAN DEFAULT true,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `;
-}
+import { getPool, ensureTable } from '@/lib/db';
 
 // 学生提交练习记录
 export async function POST(request: NextRequest) {
-  if (!dbConfigured()) {
+  if (!process.env.POSTGRES_URL) {
     return NextResponse.json({ error: '数据库未配置' }, { status: 200 });
   }
 
   try {
     await ensureTable();
     const body = await request.json();
+    const pool = getPool();
 
-    await sql`
-      INSERT INTO sessions (
+    await pool.query(
+      `INSERT INTO sessions (
         id, practitioner_id, practitioner_name, scenario_id, scenario_title,
         start_time, end_time, duration_seconds,
         score_overall, score_empathy, score_questioning,
         score_intervention, score_structure, score_ethics,
         techniques_used, completed
-      ) VALUES (
-        ${body.id},
-        ${body.practitionerId},
-        ${body.practitionerName},
-        ${body.scenarioId},
-        ${body.scenarioTitle},
-        ${body.startTime},
-        ${body.endTime},
-        ${body.durationSeconds},
-        ${body.score?.overall ?? 0},
-        ${body.score?.empathy ?? 0},
-        ${body.score?.questioning ?? 0},
-        ${body.score?.intervention ?? 0},
-        ${body.score?.structure ?? 0},
-        ${body.score?.ethics ?? 0},
-        ${JSON.stringify(body.score?.techniquesUsed ?? [])},
-        ${body.completed ?? true}
-      )
-      ON CONFLICT (id) DO NOTHING
-    `;
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+      ON CONFLICT (id) DO NOTHING`,
+      [
+        body.id,
+        body.practitionerId,
+        body.practitionerName,
+        body.scenarioId,
+        body.scenarioTitle,
+        body.startTime,
+        body.endTime,
+        body.durationSeconds,
+        body.score?.overall ?? 0,
+        body.score?.empathy ?? 0,
+        body.score?.questioning ?? 0,
+        body.score?.intervention ?? 0,
+        body.score?.structure ?? 0,
+        body.score?.ethics ?? 0,
+        JSON.stringify(body.score?.techniquesUsed ?? []),
+        body.completed ?? true,
+      ]
+    );
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
@@ -82,16 +56,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: '密码错误' }, { status: 401 });
   }
 
-  if (!dbConfigured()) {
+  if (!process.env.POSTGRES_URL) {
     return NextResponse.json(
-      { error: '数据库未配置。请在 Vercel 项目中创建 Postgres 数据库并关联到项目。' },
+      { error: '数据库未配置。请设置 POSTGRES_URL 环境变量。' },
       { status: 500 }
     );
   }
 
   try {
     await ensureTable();
-    const result = await sql`SELECT * FROM sessions ORDER BY start_time DESC`;
+    const pool = getPool();
+    const result = await pool.query('SELECT * FROM sessions ORDER BY start_time DESC');
     return NextResponse.json(result.rows);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
