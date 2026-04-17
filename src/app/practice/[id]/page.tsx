@@ -105,7 +105,6 @@ export default function PracticePage({
   const [showAssessment, setShowAssessment] = useState(false);
   const [showClientPanel, setShowClientPanel] = useState(false);
   const [showHintPanel, setShowHintPanel] = useState(false);
-  const [initialLoaded, setInitialLoaded] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -118,14 +117,16 @@ export default function PracticePage({
     scrollToBottom();
   }, [messages, isTyping, showFeedback, scrollToBottom]);
 
-  // Load first node on mount
+  // Load first node on mount (strict-mode safe)
   useEffect(() => {
-    if (!scenario || initialLoaded) return;
-    setInitialLoaded(true);
+    if (!scenario) return;
     const firstNode = scenario.dialogueNodes[0];
     if (!firstNode) return;
 
+    // Reset state on each mount (handles React strict mode re-mount)
+    setMessages([]);
     setIsTyping(true);
+
     const timer = setTimeout(() => {
       setIsTyping(false);
       setMessages([
@@ -139,8 +140,10 @@ export default function PracticePage({
       setCurrentEmotion(firstNode.clientEmotion);
     }, 1500);
 
-    return () => clearTimeout(timer);
-  }, [scenario, initialLoaded]);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [scenario]);
 
   if (!scenario) {
     return (
@@ -202,8 +205,8 @@ export default function PracticePage({
       setCurrentEmotion("distressed");
     }
 
-    // Check if this is the last node
-    if (selectedOption.nextNodeId === "node_end") {
+    // Check if this is the last node (end IDs follow pattern: "xx-end" or "node_end")
+    if (selectedOption.nextNodeId.endsWith('-end') || selectedOption.nextNodeId === 'node_end') {
       setIsComplete(true);
       setSelectedOption(null);
       return;
@@ -271,7 +274,6 @@ export default function PracticePage({
     setIsTyping(false);
     setIsComplete(false);
     setShowAssessment(false);
-    setInitialLoaded(false);
   }
 
   const assessmentScore = isComplete ? calculateAssessment(responses) : null;
