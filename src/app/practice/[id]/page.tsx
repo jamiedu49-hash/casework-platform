@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect, useRef, useCallback } from "react";
+import { use, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   ChevronRight,
@@ -162,6 +162,24 @@ export default function PracticePage({
   }
 
   const currentNode = scenario.dialogueNodes[currentNodeIndex];
+
+  // Stable shuffle: deterministic per node so order doesn't change on re-render
+  const shuffledOptions = useMemo(() => {
+    if (!currentNode) return [];
+    const opts = [...currentNode.responseOptions];
+    // Simple seeded shuffle based on node id
+    let seed = 0;
+    for (let i = 0; i < currentNode.id.length; i++) {
+      seed = ((seed << 5) - seed + currentNode.id.charCodeAt(i)) | 0;
+    }
+    for (let i = opts.length - 1; i > 0; i--) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      const j = seed % (i + 1);
+      [opts[i], opts[j]] = [opts[j], opts[i]];
+    }
+    return opts;
+  }, [currentNode]);
+
   const activeStages = [
     ...new Set(scenario.dialogueNodes.map((n) => n.stage)),
   ];
@@ -493,7 +511,7 @@ export default function PracticePage({
               /* Response options */
               <div className="space-y-2 max-h-[40vh] overflow-y-auto">
                 <p className="text-xs text-slate-400 mb-2">选择你的回应：</p>
-                {currentNode.responseOptions.map((option) => (
+                {shuffledOptions.map((option) => (
                   <button
                     key={option.id}
                     onClick={() => handleSelectOption(option)}
